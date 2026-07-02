@@ -1,39 +1,166 @@
 "use client";
 
-import { useState } from "react";
-import axios from "axios";
+import { useEffect, useRef, useState } from "react";
+import { FileText } from "lucide-react";
+import PdfUploader from "./components/PdfUploader";
 
-const initialMessages = [{ role: "ai", text: "Hello! Where should we start?" }];
+type Message = {
+  role: "ai" | "user";
+  text: string;
+  fileName?: string;
+};
+
+type ChatSubmit = {
+  message: string;
+  fileName?: string;
+};
+
+const initialMessages: Message[] = [
+  { role: "ai", text: "Hello! Where should we start?" },
+];
+
+const STREAM_WORD_DELAY_MS = 35;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function splitIntoWordTokens(text: string) {
+  return text.match(/\S+\s*/g) || [];
+}
 
 export default function Homepage() {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const sendChat = async () => {
-    if (!input.trim()) return;
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [messages]);
 
-    const message = input.trim();
+  const sendChat = async ({ message, fileName }: ChatSubmit) => {
+    const trimmedMessage = message.trim();
 
-    setMessages((current) => [...current, { role: "user", text: message }]);
+    if (!trimmedMessage && !fileName) return;
+
+    setIsSending(true);
+    setMessages((current) => [
+      ...current,
+      {
+        role: "user",
+        text: trimmedMessage || "Uploaded a PDF.",
+        fileName,
+      },
+    ]);
     setInput("");
 
-    try {
-      const response = await axios.post("/api/chat", { message });
-      const reply =
-        typeof response.data?.reply === "string"
-          ? response.data.reply
-          : "I couldn't generate a response.";
-
-      setMessages((current) => [...current, { role: "ai", text: reply }]);
-    } catch (error) {
-      console.error("Error:", error);
+    if (!trimmedMessage) {
       setMessages((current) => [
         ...current,
         {
           role: "ai",
-          text: "Something went wrong while sending your message.",
+          text: "PDF uploaded. Ask me what you want to do with it.",
         },
       ]);
+      setIsSending(false);
+      return;
+    }
+
+    try {
+      const aiMessageIndex = messages.length + 1;
+
+      setMessages((current) => [
+        ...current,
+        { role: "ai", text: "Thinking..." },
+      ]);
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: trimmedMessage }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to stream response.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let streamedText = "";
+
+      const revealText = async (text: string) => {
+        const tokens = splitIntoWordTokens(text);
+
+        for (const token of tokens) {
+          streamedText += token;
+
+          setMessages((current) => {
+            const updated = [...current];
+            const aiMessage = updated[aiMessageIndex];
+
+            if (aiMessage?.role === "ai") {
+              updated[aiMessageIndex] = {
+                ...aiMessage,
+                text: streamedText,
+              };
+            }
+
+            return updated;
+          });
+
+          await sleep(STREAM_WORD_DELAY_MS);
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          const remainingText = decoder.decode();
+
+          if (remainingText) {
+            await revealText(remainingText);
+          }
+
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        await revealText(chunk);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setMessages((current) => {
+        const updated = [...current];
+        const lastMessage = updated[updated.length - 1];
+
+        if (lastMessage?.role === "ai") {
+          updated[updated.length - 1] = {
+            ...lastMessage,
+            text: "Something went wrong while sending your message.",
+          };
+
+          return updated;
+        }
+
+        return [
+          ...current,
+          {
+            role: "ai",
+            text: "Something went wrong while sending your message.",
+          },
+        ];
+      });
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -56,29 +183,26 @@ export default function Homepage() {
                 <p className="mb-1 text-xs font-bold uppercase text-gray-400">
                   {msg.role === "user" ? "You" : "RumiGPT"}
                 </p>
+                {msg.fileName ? (
+                  <div className="mb-3 inline-flex max-w-full items-center gap-2 rounded-lg border border-white/10 bg-[#3a3a3a] px-3 py-2 text-sm text-gray-100">
+                    <FileText className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{msg.fileName}</span>
+                  </div>
+                ) : null}
                 <p className="text-gray-200">{msg.text}</p>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
         </div>
 
         <div className="p-6">
-          <div className="mx-auto flex max-w-2xl gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendChat()}
-              placeholder="Ask anything..."
-              className="flex-1 rounded-lg border-none bg-[#2f2f2f] p-3 focus:outline-none"
-            />
-            <button
-              onClick={sendChat}
-              className="rounded-lg bg-white px-4 py-2 font-bold text-black"
-            >
-              Send
-            </button>
-          </div>
+          <PdfUploader
+            disabled={isSending}
+            value={input}
+            onChange={setInput}
+            onSubmit={sendChat}
+          />
         </div>
       </div>
     </div>

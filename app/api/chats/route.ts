@@ -16,9 +16,14 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Failed to load chats:", error);
+    const message =
+      error instanceof Error ? error.message : "Unknown database error";
 
     return NextResponse.json(
-      { error: "Failed to load chats." },
+      {
+        error: "Failed to load chats.",
+        ...(process.env.NODE_ENV !== "production" ? { details: message } : {}),
+      },
       { status: 500 },
     );
   }

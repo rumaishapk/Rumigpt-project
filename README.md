@@ -2,6 +2,33 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Aiven PostgreSQL
+
+Set the Aiven service URI in `.env`:
+
+```bash
+DATABASE_URL=postgres://avnadmin:<password>@<host>:<port>/defaultdb?sslmode=require
+```
+
+Node.js must also trust the CA that signed the Aiven service certificate. Download
+the CA certificate from the Aiven service's connection information and use one
+of these options:
+
+```bash
+# Local development: path to the downloaded certificate
+DATABASE_CA_CERT_PATH=./aiven-ca.pem
+
+# Deployment: the complete PEM certificate stored as a secret environment variable
+DATABASE_CA_CERT="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
+```
+
+Do not set both CA variables. The certificate file and `.env` files are ignored
+by Git. Apply the database schema after configuring the connection:
+
+```bash
+npm run db:schema
+```
+
 First, run the development server:
 
 ```bash

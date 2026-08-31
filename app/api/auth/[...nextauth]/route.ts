@@ -1,22 +1,37 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import type { NextRequest } from "next/server";
 
-const googleClientId = process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const nextAuthSecret = process.env.NEXTAUTH_SECRET;
+type RouteContext = {
+  params: Promise<{ nextauth: string[] }>;
+};
 
-if (!googleClientId || !googleClientSecret || !nextAuthSecret) {
-  throw new Error("Missing NextAuth environment variables.");
+function requiredEnvironmentVariable(name: string) {
+  const value = process.env[name];
+
+  if (!value) {
+    throw new Error(`${name} is not set.`);
+  }
+
+  return value;
 }
 
-const handler = NextAuth({
-  secret: nextAuthSecret,
-  providers: [
-    GoogleProvider({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
-    }),
-  ],
-});
+function createHandler() {
+  return NextAuth({
+    secret: requiredEnvironmentVariable("NEXTAUTH_SECRET"),
+    providers: [
+      GoogleProvider({
+        clientId: requiredEnvironmentVariable("GOOGLE_CLIENT_ID"),
+        clientSecret: requiredEnvironmentVariable("GOOGLE_CLIENT_SECRET"),
+      }),
+    ],
+  });
+}
 
-export { handler as GET, handler as POST };
+export function GET(request: NextRequest, context: RouteContext) {
+  return createHandler()(request, context);
+}
+
+export function POST(request: NextRequest, context: RouteContext) {
+  return createHandler()(request, context);
+}

@@ -1,8 +1,12 @@
 node_modules
 .next
 .git
+.gitignore
 .env
 .env.local
+.env.*
+*.pem
 npm-debug.log
 docker-compose.yml
-init.sql
+docker-compose.*.yml
+public/uploads/*

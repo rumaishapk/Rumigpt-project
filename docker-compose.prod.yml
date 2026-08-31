@@ -1,0 +1,24 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: rumigpt:latest
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_CA_CERT_PATH: /run/secrets/aiven_ca
+    ports:
+      - "127.0.0.1:3000:3000"
+    secrets:
+      - aiven_ca
+    volumes:
+      - uploads:/app/public/uploads
+
+secrets:
+  aiven_ca:
+    file: ./aiven-ca.pem
+
+volumes:
+  uploads:

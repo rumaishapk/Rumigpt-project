@@ -9,12 +9,26 @@ services:
       - .env.production
     environment:
       DATABASE_CA_CERT_PATH: /run/secrets/aiven_ca
-    ports:
-      - "127.0.0.1:3000:3000"
+    expose:
+      - "3000"
     secrets:
       - aiven_ca
     volumes:
       - uploads:/app/public/uploads
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
 secrets:
   aiven_ca:
@@ -22,3 +36,5 @@ secrets:
 
 volumes:
   uploads:
+  caddy_data:
+  caddy_config:

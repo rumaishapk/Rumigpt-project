@@ -11,6 +11,7 @@
     "db:schema:local": "node --env-file=.env.local scripts/apply-schema.mjs"
   },
   "dependencies": {
+    "@google-cloud/storage": "^8.0.1",
     "@google/genai": "^2.2.0",
     "@pinecone-database/pinecone": "^8.0.0",
     "axios": "^1.16.1",

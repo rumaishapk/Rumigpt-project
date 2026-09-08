@@ -9,6 +9,7 @@ type PdfUploaderProps = {
   onChange: (value: string) => void;
   onSubmit: (payload: {
     documentId?: string;
+    fileUrl?: string; 
     message: string;
     fileName?: string;
   }) => Promise<void>;
@@ -63,7 +64,8 @@ export default function PdfUploader({
       throw new Error(data?.error || "Upload failed. Please try again.");
     }
 
-    return res.json() as Promise<{ documentId: string }>;
+    
+    return res.json() as Promise<{ documentId?: string; fileUrl?: string }>;
   };
 
   const clearFile = () => {
@@ -86,14 +88,17 @@ export default function PdfUploader({
     try {
       const uploadedFileName = file?.name;
       let documentId: string | undefined;
+      let fileUrl: string | undefined;
 
       if (file) {
         const uploadResult = await uploadFile(file);
         documentId = uploadResult.documentId;
+        fileUrl = uploadResult.fileUrl;
       }
 
       await onSubmit({
         documentId,
+        fileUrl,
         message,
         fileName: uploadedFileName,
       });

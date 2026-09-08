@@ -8,14 +8,59 @@ if (typeof (global as any).ImageData === 'undefined') {
 if (typeof (global as any).Path2D === 'undefined') {
   (global as any).Path2D = class Path2D {};
 }
-
-
-
-
-
-
-
 import { NextRequest, NextResponse } from "next/server";
+import ImageKit from "imagekit";
+
+// Initialize ImageKit connection
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY!,
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY!,
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT!,
+});
+
+export async function POST(req: NextRequest) {
+  try {
+    const formData = await req.formData();
+    const file = formData.get("file") as File;
+
+    if (!file) {
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    }
+
+    // Convert PDF file into a buffer
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Upload PDF to ImageKit
+    const uploadResult = await imagekit.upload({
+      file: buffer,                 // File buffer
+      fileName: file.name,          // Original file name
+      folder: "/rumigpt-documents", // Folder destination in ImageKit
+    });
+
+    console.log("Uploaded successfully to ImageKit:", uploadResult.url);
+
+    return NextResponse.json({
+      success: true,
+      fileUrl: uploadResult.url,    // Public CDN URL of the uploaded PDF
+      fileId: uploadResult.fileId,
+      name: uploadResult.name,
+    });
+  } catch (error) {
+    console.error("ImageKit upload error:", error);
+    return NextResponse.json(
+      { error: "Failed to upload to ImageKit" },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+
 import fs from "fs/promises";
 import path from "path";
 import { pathToFileURL } from "url";
